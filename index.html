@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Anomaly & Playbook Console</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #f5f5f7;
+      color: #111827;
+      display: flex;
+      height: 100vh;
+    }
+    #left, #center, #right {
+      padding: 1rem;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    #left { width: 30%; border-right: 1px solid #e5e7eb; }
+    #center { width: 35%; border-right: 1px solid #e5e7eb; }
+    #right { width: 35%; }
+
+    h1, h2, h3 { margin-top: 0; }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 0.9rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    label {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.35rem;
+      margin-top: 0.2rem;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      font-size: 0.85rem;
+      box-sizing: border-box;
+    }
+    textarea { min-height: 60px; resize: vertical; }
+    button {
+      margin-top: 0.6rem;
+      padding: 0.45rem 0.8rem;
+      border-radius: 4px;
+      border: none;
+      background: #2563eb;
+      color: #fff;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    button.secondary { background: #6b7280; }
+    button.small { font-size: 0.75rem; padding: 0.3rem 0.6rem; }
+    button:hover { opacity: 0.95; }
+    .pill {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      margin-right: 0.25rem;
+    }
+    .pill.severity-low { background: #dcfce7; color: #166534; }
+    .pill.severity-medium { background: #fef3c7; color: #92400e; }
+    .pill.severity-high { background: #fee2e2; color: #b91c1c; }
+    .pill.type-unclassified { background: #e5e7eb; color: #374151; }
+    .pill.type-scam { background: #fef3c7; color: #92400e; }
+    .pill.type-technical { background: #dbeafe; color: #1d4ed8; }
+    .pill.type-physical { background: #ede9fe; color: #6d28d9; }
+    .anomaly-row {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.4rem 0;
+      cursor: pointer;
+    }
+    .anomaly-row:hover { background: #f9fafb; }
+    .anomaly-row.active { background: #eff6ff; }
+    small { font-size: 0.75rem; color: #6b7280; }
+    #playbook-container {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.8rem;
+      background: #fff;
+      min-height: 220px;
+    }
+    #playbook-text { margin-bottom: 0.7rem; font-size: 0.9rem; }
+    .playbook-btn {
+      display: block;
+      width: 100%;
+      margin-bottom: 0.4rem;
+      padding: 0.45rem;
+      background: #e5e7eb;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      border: none;
+      font-size: 0.85rem;
+    }
+    .playbook-btn:hover { background: #d1d5db; }
+    .action-log-entry {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.3rem 0;
+    }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 0.6rem 0; }
+  </style>
+</head>
+<body>
+  <!-- LEFT: CREATE / NOTES / PROMOTE / IMPORT-EXPORT -->
+  <div id="left">
+    <h1>Anomaly Console</h1>
+
+    <div class="card">
+      <h2>New anomaly</h2>
+      <form id="anomaly-form">
+        <label>Type
+          <select name="type" required>
+            <option value="unclassified">Unclassified</option>
+            <option value="scam_communication">Scam communication</option>
+            <option value="technical_incident">Technical incident</option>
+            <option value="physical_event">Physical event</option>
+          </select>
+        </label>
+        <label>Channel / medium
+          <input name="channel" placeholder="phone, email, system, physical, etc." />
+        </label>
+        <label>Severity
+          <select name="severity" required>
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label>Title
+          <input name="title" required placeholder="Short description" />
+        </label>
+        <label>Summary
+          <textarea name="summary" placeholder="What happened?"></textarea>
+        </label>
+        <label>Tags (comma-separated)
+          <input name="tags" placeholder="scam, login, outage, etc." />
+        </label>
+        <button type="submit">Create anomaly</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Selected anomaly notes</h2>
+      <small>For unclassified or evolving anomalies, capture observations here.</small>
+      <textarea id="anomaly-notes" placeholder="Notes for selected anomaly..."></textarea>
+      <button id="save-notes" class="small">Save notes</button>
+    </div>
+
+    <div class="card">
+      <h2>Promote anomaly type</h2>
+      <small>Turn an unclassified anomaly into a new type with its own playbook stub.</small>
+      <label>New type ID (machine name)
+        <input id="new-type-id" placeholder="e.g. socialengineeringvariant_a" />
+      </label>
+      <label>New type label
+        <input id="new-type-label" placeholder="e.g. Social engineering variant A" />
+      </label>
+      <button id="promote-type" class="small secondary">Promote & create playbook stub</button>
+    </div>
+
+    <div class="card">
+      <h2>Import / Export</h2>
+      <button id="export-json" class="small">Export JSON</button>
+      <label style="margin-top:0.5rem;">
+        Import JSON
+        <input type="file" id="import-json" accept="application/json" />
+      </label>
+      <small id="library-version-label"></small>
+    </div>
+  </div>
+
+  <!-- CENTER: ANOMALY LIST + ACTION LOG -->
+  <div id="center">
+    <div class="card">
+      <h2>Anomalies</h2>
+      <div id="anomaly-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Action log</h2>
+      <small>Actions taken for the selected anomaly (including playbook steps).</small>
+      <div id="action-log"></div>
+      <label>Manual action / note
+        <input id="manual-action-text" placeholder="e.g. Called bank, reset password, escalated to security." />
+      </label>
+      <button id="log-manual-action" class="small">Log manual action</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: PLAYBOOK VIEWER + EDITOR -->
+  <div id="right">
+    <div class="card">
+      <h2>Playbook</h2>
+      <small>Playbook is selected based on anomaly type. Unclassified anomalies may have no playbook yet.</small>
+      <div><strong>Type:</strong> <span id="pb-type-label">None</span></div>
+      <div><strong>Playbook ID:</strong> <span id="pb-id-label">—</span></div>
+      <div><strong>Playbook Version:</strong> <span id="pb-version-label">—</span></div>
+    </div>
+
+    <div id="playbook-container" class="card">
+      <div id="playbook-text">Select an anomaly to load its playbook.</div>
+      <div id="playbook-buttons"></div>
+    </div>
+
+    <div class="card">
+      <h2>Playbook Editor</h2>
+      <small>Edit the playbook for any type, or create new ones.</small>
+
+      <div>
+        <label>Playbook
+          <select id="editor-playbook-select"></select>
+        </label>
+      </div>
+
+      <div style="margin-top:0.5rem;">
+        <button id="create-playbook" class="small">New Playbook</button>
+        <button id="delete-playbook" class="small secondary">Delete</button>
+      </div>
+
+      <hr/>
+
+      <div>
+        <label>Node
+          <select id="editor-node-select"></select>
+        </label>
+      </div>
+
+      <label>Node Text
+        <textarea id="editor-node-text"></textarea>
+      </label>
+
+      <button id="save-node-text" class="small">Save Node Text</button>
+
+      <h3>Options</h3>
+      <div id="editor-options"></div>
+
+      <button id="add-option" class="small">Add Option</button>
+
+      <hr/>
+
+      <button id="add-node" class="small">Add Node</button>
+      <button id="delete-node" class="small secondary">Delete Node</button>
+    </div>
+  </div>
+
+  <script>
+    /* ============================
+       ANOMALY & PLAYBOOK LIBRARY
+    ============================ */
+
+    const AnomalyLib = (() => {
+      let nextAnomalyId = 1;
+      let nextActionId = 1;
+      let libraryVersion = 1;
+
+      const anomalies = [];
+      const actions = [];
+      const playbooks = {};
+
+      function defaultTypeLabel(type) {
+        switch (type) {
+          case "scam_communication": return "Scam communication";
+          case "technical_incident": return "Technical incident";
+          case "physical_event": return "Physical event";
+          case "unclassified":
+          default: return "Unclassified anomaly";
+        }
+      }
+
+      function defaultPlaybookIdForType(type) {
+        switch (type) {
+          case "scamcommunication": return "pbscam_communication";
+          case "technicalincident": return "pbtechnical_incident";
+          case "physicalevent": return "pbphysical_event";
+          default: return null;
+        }
+      }
+
+      function bumpLibraryVersion() {
+        libraryVersion++;
+      }
+
+      function getLibraryVersion() {
+        return libraryVersion;
+      }
+
+      function createAnomaly(payload) {
+        const anomaly = {
+          id: nextAnomalyId++,
+          version: 1,
+          createdAt: new Date().toISOString(),
+          type: payload.type || "unclassified",
+          typeLabel: payload.typeLabel || defaultTypeLabel(payload.type),
+          channel: payload.channel || "",
+          severity: payload.severity || "medium",
+          title: payload.title || "",
+          summary: payload.summary || "",
+          tags: payload.tags || [],
+          notes: "",
+          playbookId: defaultPlaybookIdForType(payload.type)
+        };
+        anomalies.push(anomaly);
+        bumpLibraryVersion();
+        return anomaly;
+      }
+
+      function listAnomalies() {
+        return [...anomalies].sort((a, b) => b.id - a.id);
+      }
+
+      function getAnomaly(id) {
+        return anomalies.find(a => a.id === id) || null;
+      }
+
+      function updateAnomaly(id, patch) {
+        const a = getAnomaly(id);
+        if (!a) return null;
+        Object.assign(a, patch);
+        a.version++;
+        bumpLibraryVersion();
+        return a;
+      }
+
+      function logAction(anomalyId, source, description) {
+        const entry = {
+          id: nextActionId++,
+          anomalyId,
+          timestamp: new Date().toISOString(),
+          source,
+          description
+        };
+        actions.push(entry);
+        bumpLibraryVersion();
+        return entry;
+      }
+
+      function listActionsForAnomaly(anomalyId) {
+        return actions
+          .filter(a => a.anomalyId === anomalyId)
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      }
+
+      function createPlaybook(id, label, rootNode) {
+        const nodes = {};
+        function addNode(nodeId, node) {
+          nodes[nodeId] = {
+            id: nodeId,
+            version: 1,
+            text: node.text,
+            options: (node.options || []).map(o => ({ label: o.label, next: o.next }))
+          };
+        }
+        addNode("root", rootNode);
+        playbooks[id] = {
+          id,
+          label,
+          version: 1,
+          root: "root",
+          nodes
+        };
+        bumpLibraryVersion();
+        return playbooks[id];
+      }
+
+      function createEmptyPlaybook(id, label) {
+        playbooks[id] = {
+          id,
+          label,
+          version: 1,
+          root: "root",
+          nodes: {
+            root: {
+              id: "root",
+              version: 1,
+              text: "New playbook root node.",
+              options: []
+            }
+          }
+        };
+        bumpLibraryVersion();
+        return playbooks[id];
+      }
+
+      function getPlaybook(id) {
+        return playbooks[id] || null;
+      }
+
+      function listPlaybooks() {
+        return Object.values(playbooks).sort((a, b) => a.id.localeCompare(b.id));
+      }
+
+      function savePlaybookNode(pbId, nodeId, nodeData) {
+        const pb = playbooks[pbId];
+        if (!pb) return null;
+        pb.nodes[nodeId] = {
+          id: nodeId,
+          version: (pb.nodes[nodeId]?.version || 0) + 1,
+          text: nodeData.text,
+          options: nodeData.options || []
+        };
+        pb.version++;
+        bumpLibraryVersion();
+        return pb.nodes[nodeId];
+      }
+
+      function deletePlaybookNode(pbId, nodeId) {
+        const pb = playbooks[pbId];
+        if (!pb || !pb.nodes[nodeId]) return false;
+        if (nodeId === pb.root) return false;
+        delete pb.nodes[nodeId];
+        pb.version++;
+        bumpLibraryVersion();
+        return true;
+      }
+
+      function deletePlaybook(pbId) {
+        if (!playbooks[pbId]) return false;
+        delete playbooks[pbId];
+        bumpLibraryVersion();
+        return true;
+      }
+
+      function promoteAnomalyToNewType(anomalyId, newTypeId, newTypeLabel) {
+        const anomaly = getAnomaly(anomalyId);
+        if (!anomaly) return null;
+        anomaly.type = newTypeId;
+        anomaly.typeLabel = newTypeLabel || newTypeId;
+        const pbId = "pb_" + newTypeId;
+        anomaly.playbookId = pbId;
+        anomaly.version++;
+        if (!playbooks[pbId]) {
+          createEmptyPlaybook(pbId, newTypeLabel || newTypeId);
+        }
+        bumpLibraryVersion();
+        return anomaly;
+      }
+
+      function exportAll() {
+        return {
+          version: "1.0.0",
+          libraryVersion,
+          exportedAt: new Date().toISOString(),
+          anomalies,
+          actions,
+          playbooks
+        };
+      }
+
+      function importAll(data) {
+        if (!data || typeof data !== "object") return false;
+
+        (data.anomalies || []).forEach(a => {
+          const existing = anomalies.find(x => x.id === a.id);
+          if (!existing) {
+            anomalies.push(a);
+            nextAnomalyId = Math.max(nextAnomalyId, a.id + 1);
+          } else if (a.version > existing.version) {
+            Object.assign(existing, a);
+          }
+        });
+
+        (data.actions || []).forEach(act => {
+          const existing = actions.find(x => x.id === act.id);
+          if (!existing) {
+            actions.push(act);
+            nextActionId = Math.max(nextActionId, act.id + 1);
+          }
+        });
+
+        Object.keys(data.playbooks || {}).forEach(pbId => {
+          const incoming = data.playbooks[pbId];
+          const existing = playbooks[pbId];
+          if (!existing) {
+            playbooks[pbId] = incoming;
+          } else if (incoming.version > existing.version) {
+            playbooks[pbId] = incoming;
+          }
+        });
+
+        if (data.libraryVersion && data.libraryVersion > libraryVersion) {
+          libraryVersion = data.libraryVersion;
+        }
+        bumpLibraryVersion();
+        return true;
+      }
+
+      // Seed default playbooks
+      createPlaybook("pbscamcommunication", "Scam communication", {
+        text: "Scam communication playbook. Choose what matches the situation.",
+        options: [
+          { label: "Caller demands urgent payment", next: "node_urgent" },
+          { label: "They ask for codes/passwords", next: "node_codes" },
+          { label: "They want remote access/software install", next: "node_remote" }
+        ]
+      });
+      playbooks["pbscamcommunication"].nodes["node_urgent"] = {
+        id: "node_urgent",
+        version: 1,
+        text: "Refuse payment. Hang up. Call official number from your own records.",
+        options: [{ label: "Log that I refused and hung up", next: "" }]
+      };
+      playbooks["pbscamcommunication"].nodes["node_codes"] = {
+        id: "node_codes",
+        version: 1,
+        text: "Never share codes or passwords. End communication.",
+        options: [{ label: "Log that I refused and ended contact", next: "" }]
+      };
+      playbooks["pbscamcommunication"].nodes["node_remote"] = {
+        id: "node_remote",
+        version: 1,
+        text: "Do not install anything. End call and report attempt.",
+        options: [{ label: "Log that I refused and reported", next: "" }]
+      };
+
+      createPlaybook("pbtechnicalincident", "Technical incident", {
+        text: "Technical incident playbook. Start with scope.",
+        options: [
+          { label: "Single user affected", next: "node_single" },
+          { label: "Multiple users / system-wide", next: "node_multi" }
+        ]
+      });
+      playbooks["pbtechnicalincident"].nodes["node_single"] = {
+        id: "node_single",
+        version: 1,
+        text: "Collect logs and screenshots. Attempt local reproduction.",
+        options: [{ label: "Log that I collected evidence", next: "" }]
+      };
+      playbooks["pbtechnicalincident"].nodes["node_multi"] = {
+        id: "node_multi",
+        version: 1,
+        text: "Escalate to incident response. Start status page update.",
+        options: [{ label: "Log that I escalated and updated status", next: "" }]
+      };
+
+      createPlaybook("pbphysicalevent", "Physical event", {
+        text: "Physical event playbook. Ensure safety first.",
+        options: [
+          { label: "Immediate safety risk", next: "node_risk" },
+          { label: "No immediate danger", next: "nodenorisk" }
+        ]
+      });
+      playbooks["pbphysicalevent"].nodes["node_risk"] = {
+        id: "node_risk",
+        version: 1,
+        text: "Contact emergency services. Evacuate if needed.",
+        options: [{ label: "Log that I contacted emergency services", next: "" }]
+      };
+      playbooks["pbphysicalevent"].nodes["nodenorisk"] = {
+        id: "nodenorisk",
+        version: 1,
+        text: "Document the event and notify facilities/security.",
+        options: [{ label: "Log that I notified facilities/security", next: "" }]
+      };
+
+      return {
+        createAnomaly,
+        listAnomalies,
+        getAnomaly,
+        updateAnomaly,
+        logAction,
+        listActionsForAnomaly,
+        createPlaybook,
+        createEmptyPlaybook,
+        getPlaybook,
+        listPlaybooks,
+        savePlaybookNode,
+        deletePlaybookNode,
+        deletePlaybook,
+        promoteAnomalyToNewType,
+        exportAll,
+        importAll,
+        getLibraryVersion
+      };
+    })();
+
+    /* ============================
+       UI WIRING
+    ============================ */
+
+    const anomalyForm = document.getElementById("anomaly-form");
+    const anomalyListDiv = document.getElementById("anomaly-list");
+    const actionLogDiv = document.getElementById("action-log");
+    const manualActionInput = document.getElementById("manual-action-text");
+    const logManualActionBtn = document.getElementById("log-manual-action");
+    const notesTextarea = document.getElementById("anomaly-notes");
+    const saveNotesBtn = document.getElementById("save-notes");
+    const promoteBtn = document.getElementById("promote-type");
+    const newTypeIdInput = document.getElementById("new-type-id");
+    const newTypeLabelInput = document.getElementById("new-type-label");
+    const exportBtn = document.getElementById("export-json");
+    const importInput = document.getElementById("import-json");
+    const libraryVersionLabel = document.getElementById("library-version-label");
+
+    const pbTypeLabel = document.getElementById("pb-type-label");
+    const pbIdLabel = document.getElementById("pb-id-label");
+    const pbVersionLabel = document.getElementById("pb-version-label");
+    const pbText = document.getElementById("playbook-text");
+    const pbButtons = document.getElementById("playbook-buttons");
+
+    const editorPlaybookSelect = document.getElementById("editor-playbook-select");
+    const editorNodeSelect = document.getElementById("editor-node-select");
+    const editorNodeText = document.getElementById("editor-node-text");
+    const editorOptionsDiv = document.getElementById("editor-options");
+
+    let selectedAnomalyId = null;
+    let currentPlaybookId = null;
+    let currentNodeId = null;
+
+    let editorPbId = null;
+    let editorNodeId = null;
+
+    function severityClass(sev) {
+      return severity-${sev};
+    }
+
+    function typeClass(type) {
+      if (!type) return "type-unclassified";
+      if (type === "scam_communication") return "type-scam";
+      if (type === "technical_incident") return "type-technical";
+      if (type === "physical_event") return "type-physical";
+      return "type-unclassified";
+    }
+
+    function renderLibraryVersion() {
+      libraryVersionLabel.textContent = "Library version: " + AnomalyLib.getLibraryVersion();
+    }
+
+    function renderAnomalyList() {
+      const anomalies = AnomalyLib.listAnomalies();
+      anomalyListDiv.innerHTML = "";
+      if (!anomalies.length) {
+        anomalyListDiv.innerHTML = "<small>No anomalies yet.</small>";
+        return;
+      }
+      anomalies.forEach(a => {
+        const div = document.createElement("div");
+        div.className = "anomaly-row" + (a.id === selectedAnomalyId ? " active" : "");
+        div.onclick = () => selectAnomaly(a.id);
+        div.innerHTML = `
+          <div><strong>#${a.id} ${a.title}</strong></div>
+          <div>
+            <span class="pill ${severityClass(a.severity)}">${a.severity.toUpperCase()}</span>
+            <span class="pill ${typeClass(a.type)}">${a.typeLabel}</span>
+          </div>
+          <small>${new Date(a.createdAt).toLocaleString()} — ${a.channel || "no channel"} — v${a.version}</small>
+        `;
+        anomalyListDiv.appendChild(div);
+      });
+    }
+
+    function renderActionLog() {
+      actionLogDiv.innerHTML = "";
+      if (!selectedAnomalyId) {
+        actionLogDiv.innerHTML = "<small>Select an anomaly to view actions.</small>";
+        return;
+      }
+      const entries = AnomalyLib.listActionsForAnomaly(selectedAnomalyId);
+      if (!entries.length) {
+        actionLogDiv.innerHTML = "<small>No actions logged yet.</small>";
+        return;
+      }
+      entries.forEach(e => {
+        const div = document.createElement("div");
+        div.className = "action-log-entry";
+        div.innerHTML = `
+          <small>${new Date(e.timestamp).toLocaleTimeString()} [${e.source}]</small><br/>
+          <span>${e.description}</span>
+        `;
+        actionLogDiv.appendChild(div);
+      });
+    }
+
+    function renderPlaybookNode(pbId, nodeId) {
+      const pb = AnomalyLib.getPlaybook(pbId);
+      if (!pb || !pb.nodes[nodeId]) {
+        pbText.textContent = "Playbook complete or node missing.";
+        pbButtons.innerHTML = "";
+        return;
+      }
+      const node = pb.nodes[nodeId];
+      currentPlaybookId = pbId;
+      currentNodeId = nodeId;
+
+      pbText.textContent = node.text;
+      pbButtons.innerHTML = "";
+      if (!node.options || !node.options.length) return;
+
+      node.options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "playbook-btn";
+        btn.textContent = opt.label;
+        btn.onclick = () => {
+          if (selectedAnomalyId) {
+            AnomalyLib.logAction(selectedAnomalyId, "playbook", opt.label);
+            renderActionLog();
+          }
+          if (!opt.next) {
+            pbText.textContent = "Playbook complete.";
+            pbButtons.innerHTML = "";
+          } else {
+            renderPlaybookNode(pbId, opt.next);
+          }
+        };
+        pbButtons.appendChild(btn);
+      });
+    }
+
+    function loadPlaybookForAnomaly(anomaly) {
+      if (!anomaly.playbookId) {
+        currentPlaybookId = null;
+        currentNodeId = null;
+        pbTypeLabel.textContent = anomaly.typeLabel;
+        pbIdLabel.textContent = "None";
+        pbVersionLabel.textContent = "—";
+        pbText.textContent = "No playbook defined for this type. You can promote this anomaly and create a stub.";
+        pbButtons.innerHTML = "";
+        return;
+      }
+      const pb = AnomalyLib.getPlaybook(anomaly.playbookId);
+      if (!pb) {
+        currentPlaybookId = null;
+        currentNodeId = null;
+        pbTypeLabel.textContent = anomaly.typeLabel;
+        pbIdLabel.textContent = anomaly.playbookId;
+        pbVersionLabel.textContent = "missing";
+        pbText.textContent = "Playbook ID is set but not found in library.";
+        pbButtons.innerHTML = "";
+        return;
+      }
+      pbTypeLabel.textContent = anomaly.typeLabel;
+      pbIdLabel.textContent = pb.id;
+      pbVersionLabel.textContent = pb.version;
+      renderPlaybookNode(pb.id, pb.root);
+    }
+
+    function selectAnomaly(id) {
+      selectedAnomalyId = id;
+      renderAnomalyList();
+      const anomaly = AnomalyLib.getAnomaly(id);
+      if (!anomaly) return;
+      notesTextarea.value = anomaly.notes || "";
+      renderActionLog();
+      loadPlaybookForAnomaly(anomaly);
+    }
+
+    anomalyForm.addEventListener("submit", e => {
+      e.preventDefault();
+      const data = new FormData(anomalyForm);
+      const anomaly = AnomalyLib.createAnomaly({
+        type: data.get("type"),
+        channel: data.get("channel"),
+        severity: data.get("severity"),
+        title: data.get("title"),
+        summary: data.get("summary"),
+        tags: (data.get("tags") || "").split(",").map(s => s.trim()).filter(Boolean)
+      });
+      AnomalyLib.logAction(anomaly.id, "system", "Anomaly created");
+      anomalyForm.reset();
+      renderAnomalyList();
+      selectAnomaly(anomaly.id);
+      renderLibraryVersion();
+    });
+
+    logManualActionBtn.addEventListener("click", () => {
+      if (!selectedAnomalyId) return;
+      const text = manualActionInput.value.trim();
+      if (!text) return;
+      AnomalyLib.logAction(selectedAnomalyId, "manual", text);
+      manualActionInput.value = "";
+      renderActionLog();
+      renderLibraryVersion();
+    });
+
+    saveNotesBtn.addEventListener("click", () => {
+      if (!selectedAnomalyId) return;
+      const notes = notesTextarea.value;
+      AnomalyLib.updateAnomaly(selectedAnomalyId, { notes });
+      AnomalyLib.logAction(selectedAnomalyId, "notes", "Notes updated");
+      renderActionLog();
+      renderAnomalyList();
+      renderLibraryVersion();
+    });
+
+    promoteBtn.addEventListener("click", () => {
+      if (!selectedAnomalyId) return;
+      const newTypeId = newTypeIdInput.value.trim();
+      if (!newTypeId) return;
+      const newTypeLabel = newTypeLabelInput.value.trim() || newTypeId;
+      const updated = AnomalyLib.promoteAnomalyToNewType(selectedAnomalyId, newTypeId, newTypeLabel);
+      if (updated) {
+        AnomalyLib.logAction(selectedAnomalyId, "system", Promoted to new type: ${newTypeLabel});
+        newTypeIdInput.value = "";
+        newTypeLabelInput.value = "";
+        renderAnomalyList();
+        selectAnomaly(selectedAnomalyId);
+        refreshPlaybookList();
+        editorPlaybookSelect.value = updated.playbookId;
+        loadPlaybookIntoEditor(updated.playbookId);
+        renderLibraryVersion();
+      }
+    });
+
+    exportBtn.addEventListener("click", () => {
+      const data = AnomalyLib.exportAll();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "anomalylibraryexport.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    importInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        alert("Invalid JSON file.");
+        return;
+      }
+      const ok = AnomalyLib.importAll(data);
+      if (!ok) {
+        alert("Import failed.");
+        return;
+      }
+      alert("Import complete.");
+      renderAnomalyList();
+      renderActionLog();
+      refreshPlaybookList();
+      renderLibraryVersion();
+    });
+
+    /* ============================
+       PLAYBOOK EDITOR
+    ============================ */
+
+    function refreshPlaybookList() {
+      const pbs = AnomalyLib.listPlaybooks();
+      editorPlaybookSelect.innerHTML = "";
+      pbs.forEach(pb => {
+        const opt = document.createElement("option");
+        opt.value = pb.id;
+        opt.textContent = ${pb.label} (${pb.id});
+        editorPlaybookSelect.appendChild(opt);
+      });
+    }
+
+    function loadPlaybookIntoEditor(pbId) {
+      editorPbId = pbId;
+      const pb = AnomalyLib.getPlaybook(pbId);
+      if (!pb) {
+        editorNodeSelect.innerHTML = "";
+        editorNodeText.value = "";
+        editorOptionsDiv.innerHTML = "";
+        return;
+      }
+      editorNodeSelect.innerHTML = "";
+      Object.keys(pb.nodes).forEach(nid => {
+        const opt = document.createElement("option");
+        opt.value = nid;
+        opt.textContent = nid;
+        editorNodeSelect.appendChild(opt);
+      });
+      loadNodeIntoEditor(pb.root);
+    }
+
+    function loadNodeIntoEditor(nodeId) {
+      editorNodeId = nodeId;
+      const pb = AnomalyLib.getPlaybook(editorPbId);
+      if (!pb || !pb.nodes[nodeId]) return;
+      const node = pb.nodes[nodeId];
+
+      editorNodeText.value = node.text;
+      editorOptionsDiv.innerHTML = "";
+
+      node.options.forEach((opt, idx) => {
+        const div = document.createElement("div");
+        div.style.marginBottom = "0.5rem";
+        div.innerHTML = `
+          <label>Label
+            <input data-opt="${idx}" data-field="label" value="${opt.label}"/>
+          </label>
+          <label>Next Node (empty = end)
+            <input data-opt="${idx}" data-field="next" value="${opt.next || ""}"/>
+          </label>
+          <button data-del="${idx}" class="small secondary">Delete Option</button>
+          <hr/>
+        `;
+        editorOptionsDiv.appendChild(div);
+      });
+
+      editorOptionsDiv.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("input", () => {
+          const idx = inp.dataset.opt;
+          const field = inp.dataset.field;
+          const pb = AnomalyLib.getPlaybook(editorPbId);
+          pb.nodes[editorNodeId].options[idx][field] = inp.value;
+          AnomalyLib.savePlaybookNode(editorPbId, editorNodeId, pb.nodes[editorNodeId]);
+          renderLibraryVersion();
+        });
+      });
+
+      editorOptionsDiv.querySelectorAll("button[data-del]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = btn.dataset.del;
+          const pb = AnomalyLib.getPlaybook(editorPbId);
+          pb.nodes[editorNodeId].options.splice(idx, 1);
+          AnomalyLib.savePlaybookNode(editorPbId, editorNodeId, pb.nodes[editorNodeId]);
+          loadNodeIntoEditor(editorNodeId);
+          renderLibraryVersion();
+        });
+      });
+    }
+
+    editorPlaybookSelect.addEventListener("change", () => {
+      loadPlaybookIntoEditor(editorPlaybookSelect.value);
+    });
+
+    editorNodeSelect.addEventListener("change", () => {
+      loadNodeIntoEditor(editorNodeSelect.value);
+    });
+
+    document.getElementById("save-node-text").addEventListener("click", () => {
+      const pb = AnomalyLib.getPlaybook(editorPbId);
+      if (!pb || !pb.nodes[editorNodeId]) return;
+      pb.nodes[editorNodeId].text = editorNodeText.value;
+      AnomalyLib.savePlaybookNode(editorPbId, editorNodeId, pb.nodes[editorNodeId]);
+      renderLibraryVersion();
+    });
+
+    document.getElementById("add-option").addEventListener("click", () => {
+      const pb = AnomalyLib.getPlaybook(editorPbId);
+      if (!pb || !pb.nodes[editorNodeId]) return;
+      pb.nodes[editorNodeId].options.push({ label: "New option", next: "" });
+      AnomalyLib.savePlaybookNode(editorPbId, editorNodeId, pb.nodes[editorNodeId]);
+      loadNodeIntoEditor(editorNodeId);
+      renderLibraryVersion();
+    });
+
+    document.getElementById("add-node").addEventListener("click", () => {
+      const pb = AnomalyLib.getPlaybook(editorPbId);
+      if (!pb) return;
+      const newId = "node_" + Date.now();
+      pb.nodes[newId] = { id: newId, version: 1, text: "New node", options: [] };
+      pb.version++;
+      refreshPlaybookList();
+      editorPlaybookSelect.value = editorPbId;
+      loadPlaybookIntoEditor(editorPbId);
+      editorNodeSelect.value = newId;
+      loadNodeIntoEditor(newId);
+      renderLibraryVersion();
+    });
+
+    document.getElementById("delete-node").addEventListener("click", () => {
+      if (!editorPbId || !editorNodeId) return;
+      if (editorNodeId === "root") {
+        alert("Cannot delete root node.");
+        return;
+      }
+      AnomalyLib.deletePlaybookNode(editorPbId, editorNodeId);
+      loadPlaybookIntoEditor(editorPbId);
+      renderLibraryVersion();
+    });
+
+    document.getElementById("create-playbook").addEventListener("click", () => {
+      const label = prompt("Playbook name:");
+      if (!label) return;
+      const id = "pbcustom" + Date.now();
+      AnomalyLib.createEmptyPlaybook(id, label);
+      refreshPlaybookList();
+      editorPlaybookSelect.value = id;
+      loadPlaybookIntoEditor(id);
+      renderLibraryVersion();
+    });
+
+    document.getElementById("delete-playbook").addEventListener("click", () => {
+      const id = editorPlaybookSelect.value;
+      if (!id) return;
+      if (!confirm("Delete this playbook?")) return;
+      AnomalyLib.deletePlaybook(id);
+      refreshPlaybookList();
+      editorNodeSelect.innerHTML = "";
+      editorNodeText.value = "";
+      editorOptionsDiv.innerHTML = "";
+      renderLibraryVersion();
+    });
+
+    // Initial render
+    renderAnomalyList();
+    renderActionLog();
+    refreshPlaybookList();
+    renderLibraryVersion();
+  </script>
+</body>
+</html>
