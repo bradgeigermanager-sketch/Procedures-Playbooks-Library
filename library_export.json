@@ -1,0 +1,233 @@
+`json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/anomalylibraryexport.schema.json",
+  "title": "Anomaly Library Export",
+  "description": "Full export of anomalies, actions, playbooks, and version metadata.",
+  "type": "object",
+
+  "required": [
+    "version",
+    "libraryVersion",
+    "exportedAt",
+    "anomalies",
+    "actions",
+    "playbooks"
+  ],
+
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Export format version (e.g., '1.0.0')."
+    },
+
+    "libraryVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic version number incremented on any mutation to the library."
+    },
+
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of export."
+    },
+
+    "anomalies": {
+      "type": "array",
+      "description": "List of all anomalies in the system.",
+      "items": { "$ref": "#/$defs/anomaly" }
+    },
+
+    "actions": {
+      "type": "array",
+      "description": "List of all logged actions across all anomalies.",
+      "items": { "$ref": "#/$defs/action" }
+    },
+
+    "playbooks": {
+      "type": "object",
+      "description": "Map of playbookId → playbook object.",
+      "additionalProperties": { "$ref": "#/$defs/playbook" }
+    }
+  },
+
+  "$defs": {
+    "anomaly": {
+      "type": "object",
+      "required": [
+        "id",
+        "version",
+        "createdAt",
+        "type",
+        "typeLabel",
+        "severity",
+        "title",
+        "summary",
+        "tags",
+        "notes",
+        "playbookId"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Unique anomaly identifier."
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Version number incremented on edits."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of anomaly creation."
+        },
+        "type": {
+          "type": "string",
+          "description": "Machine-readable anomaly type (e.g., 'scam_communication')."
+        },
+        "typeLabel": {
+          "type": "string",
+          "description": "Human-readable anomaly type label."
+        },
+        "channel": {
+          "type": "string",
+          "description": "Communication or event channel (phone, email, system, etc.)."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "Severity classification."
+        },
+        "title": {
+          "type": "string",
+          "description": "Short description of the anomaly."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Detailed description of the anomaly."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "User-defined tags."
+        },
+        "notes": {
+          "type": "string",
+          "description": "User notes for unclassified or evolving anomalies."
+        },
+        "playbookId": {
+          "type": "string",
+          "description": "ID of the playbook associated with this anomaly.",
+          "pattern": "^$|^pb[A-Za-z0-9\\-]+$"
+        }
+      }
+    },
+
+    "action": {
+      "type": "object",
+      "required": ["id", "anomalyId", "timestamp", "source", "description"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Unique action identifier."
+        },
+        "anomalyId": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "ID of the anomaly this action belongs to."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the action."
+        },
+        "source": {
+          "type": "string",
+          "description": "Source of the action (system, manual, playbook, notes)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the action."
+        }
+      }
+    },
+
+    "playbook": {
+      "type": "object",
+      "required": ["id", "label", "version", "root", "nodes"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^pb[A-Za-z0-9\\-]+$",
+          "description": "Unique playbook identifier."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable playbook name."
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Version number incremented on any mutation."
+        },
+        "root": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_\\-]+$",
+          "description": "Node ID of the root node."
+        },
+        "nodes": {
+          "type": "object",
+          "description": "Map of nodeId → node object.",
+          "additionalProperties": { "$ref": "#/$defs/node" }
+        }
+      }
+    },
+
+    "node": {
+      "type": "object",
+      "required": ["id", "version", "text", "options"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_\\-]+$",
+          "description": "Node identifier."
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Node version number."
+        },
+        "text": {
+          "type": "string",
+          "description": "Instruction or message shown to the user."
+        },
+        "options": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/option" },
+          "description": "List of branching options."
+        }
+      }
+    },
+
+    "option": {
+      "type": "object",
+      "required": ["label", "next"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Text shown on the option button."
+        },
+        "next": {
+          "type": "string",
+          "pattern": "^$|^[A-Za-z0-9_\\-]+$",
+          "description": "ID of the next node, or empty string for terminal."
+        }
+      }
+    }
+  }
+}
+`
