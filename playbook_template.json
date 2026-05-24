@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/playbook.schema.json",
+  "title": "Playbook",
+  "description": "Decision-tree playbook used for anomaly response.",
+  "type": "object",
+
+  "required": ["id", "label", "version", "root", "nodes"],
+
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique playbook identifier (e.g., pb_scam_communication).",
+      "pattern": "^pb_[A-Za-z0-9_\\-]+$"
+    },
+
+    "label": {
+      "type": "string",
+      "description": "Human-readable playbook name."
+    },
+
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic version number incremented on any mutation."
+    },
+
+    "root": {
+      "type": "string",
+      "description": "Node ID of the root node.",
+      "pattern": "^[A-Za-z0-9_\\-]+$"
+    },
+
+    "nodes": {
+      "type": "object",
+      "description": "Map of nodeId → Node object.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/node"
+      }
+    }
+  },
+
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "version", "text", "options"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Node identifier.",
+          "pattern": "^[A-Za-z0-9_\\-]+$"
+        },
+
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Version of this node, incremented on edits."
+        },
+
+        "text": {
+          "type": "string",
+          "description": "Instruction or message shown to the user."
+        },
+
+        "options": {
+          "type": "array",
+          "description": "List of selectable options branching from this node.",
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        }
+      }
+    },
+
+    "option": {
+      "type": "object",
+      "required": ["label", "next"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Text shown on the button for this option."
+        },
+
+        "next": {
+          "type": "string",
+          "description": "ID of the next node. Empty string means terminal node.",
+          "pattern": "^$|^[A-Za-z0-9_\\-]+$"
+        }
+      }
+    }
+  }
+}
